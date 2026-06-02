@@ -1,6 +1,5 @@
 CXX = g++
-FLAGS = -Pedantic -Wall -Werror
+FLAGS = -pedantic -Wall -Werror
 
-src/sorter.cpp: 
-	CXX TARGET -o build/sorter FLAGS
-
+build/sorter: src/sorter.cpp
+	$(CXX) $(FLAGS) $< -o $@
