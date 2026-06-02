@@ -1,6 +1,5 @@
 #include <cstddef>
 #include <iostream>
-#include <iterator>
 #include <queue>
 #include <string>
 #include <unordered_map>
@@ -24,7 +23,7 @@ public:
   explicit puzzle_state(size_t rows, size_t col)
       : rows(rows), col(col), state(rows * col, -1) {}
   bool operator<(const puzzle_state &rhs) const {
-    return this->cost < rhs.cost;
+    return this->cost > rhs.cost;
   }
 
 private:
@@ -64,34 +63,65 @@ int getHscore(puzzle_state &state) {
 int main(int argc, char *argv[]) {
   std::priority_queue<puzzle_state> nodes;
   puzzle_state startingState(3, 3);
-  startingState.state = {1, -1, -1, 2, 2, -1, 2, 1, 1};
+  startingState.state = {1, -1, -1, 2, -1, 2, 2, 1, 1};
   startingState.moves = 0;
   startingState.cost = startingState.moves + getHscore(startingState);
   startingState.encode();
   nodes.push(startingState);
   std::unordered_map<std::string, std::string> parents;
-  while (true) {
+  bool solved = false;
+  while (!solved) {
     puzzle_state currentBest = nodes.top();
+    nodes.pop();
     for (size_t col = 0; col < currentBest.col; ++col) {
-      int toMove;
+      int toMove = -9;    // fix this cuz its gonna cause problems
+      size_t moveIdx = 0; // also fix this
       for (size_t i = col; i < currentBest.state.size();
            i += currentBest.rows) {
-        if (currentBest.state[i] != -1)
+        if (currentBest.state[i] != -1) {
           toMove = currentBest.state[i];
+          moveIdx = i;
+          break;
+        }
       }
       for (size_t checkCol = 0; checkCol < currentBest.col; ++checkCol) {
         if (checkCol != col) {
           for (size_t depth = checkCol + currentBest.rows;
                depth < currentBest.state.size(); depth += currentBest.rows) {
-            if ((currentBest.state[depth] == toMove) &&
-                currentBest.state[depth - currentBest.rows] == -1) {
+            if (((currentBest.state[depth] == toMove) &&
+                 currentBest.state[depth - currentBest.rows] == -1) ||) {
               // we have a new state to add to the queue
+              puzzle_state move(currentBest.rows, currentBest.col);
+              move.state = currentBest.state;
+              move.state[depth - move.rows] = toMove;
+              move.state[moveIdx] = -1;
+              if (isSolved(move)) {
+                std::cout << move.state[0] << "," << move.state[1] << ","
+                          << move.state[2] << "," << std::endl
+                          << move.state[3] << "," << move.state[4] << ","
+                          << move.state[5] << "," << std::endl
+                          << move.state[6] << "," << move.state[7] << ","
+                          << move.state[8] << "," << std::endl;
+                solved = true;
+                break;
+              }
+              move.encode();
+              if (parents[move.encoded]
+                      .empty()) { // if we have never found it before, then add
+                                  // it in there and give it a parent
+                move.moves = currentBest.moves + 1;
+                move.cost = getHscore(move) + move.moves;
+                parents[move.encoded] = currentBest.encoded;
+                nodes.push(move);
+              }
             }
           }
         }
       }
     }
-    // generate all possible moves1
+    // dequeue current best node, put it in narnia since we have a hashed
+    // version of it already. At some point I should make it a heap alloc thing
+    // and then free it
   }
 
   return 0;
