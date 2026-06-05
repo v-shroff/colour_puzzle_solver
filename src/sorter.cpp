@@ -1,52 +1,59 @@
+#include <algorithm>
 #include <cstddef>
-#include <iostream>
+#include <deque>
+#include <functional>
+#include <iterator>
 #include <queue>
-#include <string>
+#include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
-class puzzle_state {
-public:
-  void encode() {
-    for (int x : state) {
-      encoded += std::to_string(x) + ",";
-    }
-  }
-
-  size_t tubeDepth;
-  size_t numTubes;
-  size_t cost = 0;
-  size_t moves;
-  std::vector<int> state;
-  std::string encoded;
-
-  explicit puzzle_state(size_t tubeDepth, size_t numTubes)
-      : tubeDepth(tubeDepth), numTubes(numTubes),
-        state(tubeDepth * numTubes, -1) {}
-
-  bool operator<(const puzzle_state &rhs) const {
-    return this->cost > rhs.cost;
-  }
+struct state {
+  state(std::vector<int> board) : board(board) {}
+  std::vector<int> board; // this is the board state
+  bool operator==(const state &rhs) const { return this->board == rhs.board; }
 };
 
-bool isSolved(puzzle_state &stateToCheck) {
-  for (size_t c = 0; c < stateToCheck.numTubes; ++c) {
-    int firstInTube = stateToCheck.state[c * stateToCheck.tubeDepth];
-    for (size_t i = c * stateToCheck.tubeDepth;
-         i < (c + 1) * stateToCheck.tubeDepth; ++i) {
-      if (stateToCheck.state[i] != firstInTube)
+namespace std {
+template <> struct hash<state> {
+  std::size_t operator()(const state &p) const noexcept {
+    if (p.board.empty())
+      return 0;
+
+    std::string_view bytes(reinterpret_cast<const char *>(p.board.data()),
+                           p.board.size() * sizeof(int));
+
+    return std::hash<std::string_view>{}(bytes);
+  }
+};
+} // namespace std
+
+struct boardState {
+  size_t g; // this is the current move count (depth)
+  int parentIdx;
+  bool isClosed;
+
+  boardState(size_t g, size_t parentIdx) : g(g), parentIdx(parentIdx) {}
+};
+
+bool isSolved(state &board, size_t numTubes, size_t tubeDepth) {
+  for (size_t tube = 0; tube < numTubes; ++tube) {
+    int firstInTube = board.board[tube * tubeDepth];
+    for (size_t depth = 0; depth < tubeDepth; ++depth) {
+      if (board.board[tube * tubeDepth + depth] != firstInTube)
         return false;
     }
   }
   return true;
 }
 
-int getHscore(puzzle_state &state) {
+int getH(const state &board, size_t numTubes, size_t tubeDepth) {
   int hScore = 0;
-  for (size_t t = 0; t < state.numTubes; ++t) {
-    for (size_t d = 1; d < state.tubeDepth; ++d) {
-      int above = state.state[t * state.tubeDepth + d - 1];
-      int curr = state.state[t * state.tubeDepth + d];
+  for (size_t t = 0; t < numTubes; ++t) {
+    for (size_t d = 1; d < tubeDepth; ++d) {
+      int above = board.board[t * tubeDepth + d - 1];
+      int curr = board.board[t * tubeDepth + d];
       if (curr != above && above != -1) {
         ++hScore;
       }
@@ -54,104 +61,127 @@ int getHscore(puzzle_state &state) {
   }
   return hScore;
 }
+bool generateValidMoves(
+    const size_t best, const state &board, size_t numTubes, size_t tubeDepth,
+    std::deque<state> &stateSpace, std::deque<boardState> &metadata,
+    std::unordered_map<state, int> &closedSet, // state array, key
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>,
+                        std::greater<std::pair<int, int>>>
+        &openSet // fscore, key
 
-int main(int argc, char *argv[]) {
-  std::priority_queue<puzzle_state> nodes;
-
-  puzzle_state startingState(4, 8);
-  startingState.state = {
-      1,  2,  3,  4,  // tube 0
-      5,  6,  1,  2,  // tube 1
-      3,  4,  5,  6,  // tube 2
-      6,  5,  4,  3,  // tube 3
-      2,  1,  6,  5,  // tube 4
-      4,  3,  2,  1,  // tube 5
-      -1, -1, -1, -1, // tube 6
-      -1, -1, -1, -1  // tube 7
-  };
-  startingState.moves = 0;
-  startingState.cost = startingState.moves + getHscore(startingState);
-  startingState.encode();
-  nodes.push(startingState);
-
-  std::unordered_map<std::string, std::string> parents;
-  bool solved = false;
-
-  while (!solved) {
-    puzzle_state currentBest = nodes.top();
-    nodes.pop();
-
-    for (size_t tube = 0; tube < currentBest.numTubes; ++tube) {
-      int toMove = -9;
-      size_t moveIdx = 0;
-
-      for (size_t d = 0; d < currentBest.tubeDepth; ++d) {
-        size_t i = tube * currentBest.tubeDepth + d;
-        if (currentBest.state[i] != -1) {
-          toMove = currentBest.state[i];
-          moveIdx = i;
-          break;
-        }
-      }
-
-      if (toMove == -9)
-        continue;
-
-      for (size_t dstTube = 0; dstTube < currentBest.numTubes; ++dstTube) {
-        if (dstTube == tube)
-          continue;
-
-        int dstIdx = -1;
-        for (size_t d = 0; d < currentBest.tubeDepth; ++d) {
-          size_t i = dstTube * currentBest.tubeDepth + d;
-          if (currentBest.state[i] == -1)
-            dstIdx = i;
-          else
-            break;
-        }
-
-        if (dstIdx == -1)
-          continue;
-
-        bool tubeEmpty = true;
-        for (size_t d = 0; d < currentBest.tubeDepth; ++d) {
-          if (currentBest.state[dstTube * currentBest.tubeDepth + d] != -1) {
-            tubeEmpty = false;
-            break;
-          }
-        }
-
-        size_t belowIdx = dstIdx + 1;
-        bool colorMatch = (belowIdx < (dstTube + 1) * currentBest.tubeDepth) &&
-                          (currentBest.state[belowIdx] == toMove);
-
-        if (!tubeEmpty && !colorMatch)
-          continue;
-
-        puzzle_state move(currentBest.tubeDepth, currentBest.numTubes);
-        move.state = currentBest.state;
-        move.state[dstIdx] = toMove;
-        move.state[moveIdx] = -1;
-
-        if (isSolved(move)) {
-          for (size_t d = 0; d < move.tubeDepth; ++d) {
-            for (size_t t = d; t < move.state.size(); t += move.tubeDepth) {
-              std::cout << move.state[t] << ",";
-            }
-            std::cout << std::endl;
-          }
-          solved = true;
-          break;
-        }
-        move.encode();
-        if (parents[move.encoded].empty()) {
-          move.moves = currentBest.moves + 1;
-          move.cost = getHscore(move) + move.moves;
-          parents[move.encoded] = currentBest.encoded;
-          nodes.push(move);
-        }
+) { // this function takes a valid map, creates valid move combinations, and
+    // then appends them to the nessecary thingies maybe its too much idk
+  state stateCpy = board;
+  // std::cout << "inside valid moves top \n";
+  for (size_t currTube = 0; currTube < numTubes;
+       ++currTube) { // we need to check the first movable ball in each tube,
+                     // lets go thru them 1 by 1
+                     //
+    // std::cout << "checking tubes " << currTube << std::endl;
+    size_t depth = 0;
+    int colour = -1;
+    // now that we're in tube currTube, find the first avilabale ball
+    for (; depth < tubeDepth; ++depth) {
+      if (board.board[currTube * tubeDepth + depth] != -1) {
+        colour = board.board[currTube * tubeDepth + depth];
+        break;
       }
     }
+    // std::cout << "found a colour " << colour << " at position " << depth
+    //   << std::endl;
+    if (colour == -1)
+      continue; // if this tube has no valid moves, skip it
+    //"depth" is the first available ball, lets iterate through the other tubes
+    // to see where we can put it
+    for (size_t placementTube = 0; placementTube < numTubes; ++placementTube) {
+      if (placementTube == currTube)
+        continue;
+      // we are now checking a destination tube to see if we can put a ball in
+      // it. Start from the bottom and then stop when we see an empty tube or a
+      // tube in which there is a -1 and then the starting index colour
+      int moveDepth = -1;
+      for (size_t mvDepth = 0; mvDepth < tubeDepth; ++mvDepth) {
+        if (board.board[placementTube * tubeDepth + mvDepth] == -1) {
+          moveDepth = mvDepth;
+        }
+      }
+      if (moveDepth == -1 ||
+          (moveDepth != static_cast<int>((tubeDepth - 1)) &&
+           board.board.at(placementTube * tubeDepth + moveDepth + 1) != colour))
+        continue;
+      // now we have a placment tube and a placment depth
+      // Lets generate the state (we cant use emplace because we need to check
+      // if it exists or not)
+      // std::cout << "valid move at " << placementTube << ", " << moveDepth
+      //  << std::endl;
+      std::swap(stateCpy.board[currTube * tubeDepth + depth],
+                stateCpy.board[placementTube * tubeDepth + moveDepth]);
+      if (closedSet.emplace(stateCpy, stateSpace.size()).second) {
+        // this means the swap worked and was placed in the thingie so were all
+        // good
+        stateSpace.push_back(stateCpy);
+        metadata.push_back(boardState(metadata[best].g + 1, best));
+        openSet.push(
+            std::pair<int, int>{metadata[std::size(metadata) - 1].g +
+                                    getH(stateCpy, numTubes, tubeDepth),
+                                std::size(stateSpace) - 1});
+
+        // std::cout << "found one state\n" << std::endl;
+        if (isSolved(stateCpy, numTubes, tubeDepth)) {
+          return true;
+        }
+      }
+      stateCpy = board;
+    }
+  }
+  return false;
+}
+
+int main(int argc, char *argv[]) {
+  std::deque<state> stateSpace;
+  std::deque<boardState> metadata;
+  std::unordered_map<state, int> closedSet; // state array, key
+  std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>,
+                      std::greater<std::pair<int, int>>>
+      openSet; // fscore, key
+  size_t tubeDepth = 4;
+  size_t numTubes = 14;
+  // stateSpace.emplace_back(std::vector<int>{
+  //     1, 2, 2,   // tube 1
+  //     -1, -1, 1, // tube 2
+  //     -1, 2, 1   // tube 3
+  // });
+  //
+  stateSpace.emplace_back(std::vector<int>{
+      1,  2,  3,  4,  // tube 0
+      5,  6,  7,  8,  // tube 1
+      4,  9,  7,  7,  // tube 2
+      10, 1,  11, 9,  // tube 3
+      1,  5,  8,  3,  // tube 4
+      2,  6,  12, 8,  // tube 5
+      5,  6,  5,  2,  // tube 6
+      12, 2,  12, 11, // tube 7
+      10, 6,  4,  4,  // tube 8
+      3,  9,  9,  1,  // tube 9
+      3,  7,  10, 11, // tube 10
+      11, 8,  12, 10, // tube 11
+      -1, -1, -1, -1, // tube 12 (empty)
+      -1, -1, -1, -1  // tube 13 (empty)
+
+  });
+  metadata.emplace_back(0, 0);
+  closedSet[stateSpace[0]] = 0;
+  openSet.emplace(std::pair<int, int>{
+      metadata[0].g + getH(stateSpace[0].board, numTubes, tubeDepth), 0});
+  bool solved = isSolved(stateSpace[0], numTubes, tubeDepth);
+
+  while (!solved) {
+    std::pair<int, int> currBest = openSet.top();
+    openSet.pop();
+    if (generateValidMoves(currBest.second, stateSpace[currBest.second],
+                           numTubes, tubeDepth, stateSpace, metadata, closedSet,
+                           openSet))
+      return 1;
   }
 
   return 0;
