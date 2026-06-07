@@ -8,7 +8,7 @@ I was really struggling to play a mobile game where you sort coloured balls into
 
 This project solves a colour sorting puzzle where balls are arranged in tubes.
 
-Rules:
+## Rules:
 - You can only move the top ball from a tube
 - A ball can only be placed onto:
   - an empty tube, or
@@ -28,7 +28,7 @@ The heuristic I used was pretty simple:
 
 It makes the program faster, but it also means solutions aren't always optimal.
 
----
+
 
 ## Performance
 
@@ -39,7 +39,7 @@ For a large puzzle configuration (16 tubes, 14 colors):
 - Solutions are typically within ~10 moves of optimal
 - Solver explores 40k states
 
----
+
 
 ## Prototype Comparison
 
@@ -50,7 +50,7 @@ The initial version (`prototype.cpp`) was a quick implementation that used reall
 
 I used better hashing and more efficient data structures for the new version.
 
----
+
 
 ## Build and Run
 
