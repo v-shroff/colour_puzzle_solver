@@ -607,7 +607,6 @@
 
       let wasmModule = null;
 
-      // --- CRITICAL: Original Emscripten logic, UNTOUCHED ---
       createModule({
         locateFile: (path) => new URL(path, import.meta.url).href,
       })
