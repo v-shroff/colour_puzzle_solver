@@ -97,12 +97,10 @@ bool generateValidMoves(
 ) { // this function takes a valid map, creates valid move combinations, and
     // then appends them to the nessecary thingies maybe its too much idk
   state stateCpy = board;
-  // std::cout << "inside valid moves top \n";
   for (size_t currTube = 0; currTube < numTubes;
        ++currTube) { // we need to check the first movable ball in each tube,
                      // lets go thru them 1 by 1
                      //
-    // std::cout << "checking tubes " << currTube << std::endl;
     size_t depth = 0;
     int colour = 0;
     // now that we're in tube currTube, find the first avilabale ball
@@ -112,8 +110,6 @@ bool generateValidMoves(
         break;
       }
     }
-    // std::cout << "found a colour " << colour << " at position " << depth
-    //   << std::endl;
     if (colour == 0)
       continue; // if this tube has no valid moves, skip it
     //"depth" is the first available ball, lets iterate through the other tubes
@@ -139,8 +135,6 @@ bool generateValidMoves(
       // now we have a placment tube and a placment depth
       // Lets generate the state (we cant use emplace because we need to check
       // if it exists or not)
-      // std::cout << "valid move at " << placementTube << ", " << moveDepth
-      //  << std::endl;
       std::swap(stateCpy.board[currTube * tubeDepth + depth],
                 stateCpy.board[placementTube * tubeDepth + moveDepth]);
       if (closedSet.emplace(stateCpy, stateSpace.size()).second) {
@@ -153,7 +147,6 @@ bool generateValidMoves(
                                     3 * getH(stateCpy, numTubes, tubeDepth),
                                 std::size(stateSpace) - 1});
 
-        // std::cout << "found one state\n" << std::endl;
         if (isSolved(stateCpy, numTubes, tubeDepth)) {
           return true;
         }
@@ -196,29 +189,6 @@ int main(int argc, char *argv[]) {
       0,  0,  0,  0,  0,  // tube 14 (empty)
       0,  0,  0,  0,  0   // tube 15 (empty)
   });
-  // stateSpace.emplace_back(std::vector<int>{
-  //     1, 2, 2,   // tube 1
-  //     0, 0, 1, // tube 2
-  //     0, 2, 1   // tube 3
-  // });
-  //
-  // stateSpace.emplace_back(std::vector<uint32_t>{
-  //     1,  2, 3,  4,  // tube 0
-  //     5,  6, 7,  8,  // tube 1
-  //     4,  9, 7,  7,  // tube 2
-  //     10, 1, 11, 9,  // tube 3
-  //     1,  5, 8,  3,  // tube 4
-  //     2,  6, 12, 8,  // tube 5
-  //     5,  6, 5,  2,  // tube 6
-  //     12, 2, 12, 11, // tube 7
-  //     10, 6, 4,  4,  // tube 8
-  //     3,  9, 9,  1,  // tube 9
-  //     3,  7, 10, 11, // tube 10
-  //     11, 8, 12, 10, // tube 11
-  //     0,  0, 0,  0,  // tube 12 (empty)
-  //     0,  0, 0,  0   // tube 13 (empty)
-  //
-  // });
 
   metadata.emplace_back(0, 0);
   closedSet[stateSpace[0]] = 0;
@@ -244,7 +214,7 @@ int main(int argc, char *argv[]) {
         std::cout << stateSpace[solvedKey].board[tube * tubeDepth + depth]
                   << " ,";
       }
-      std::cout << "Tube " << tube << std::endl;
+      std:: << "Tube " << tube << std::endl;
     }
     ++numMoves;
     std::cout << std::endl;
