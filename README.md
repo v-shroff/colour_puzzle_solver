@@ -6,3 +6,7 @@ I really struggled with them so I thought it might be a fun/cool idea to impleme
 To run this, just download repo and run make build/solver in the root directory and then run solver. 
 
 For a quick demo check out this github page, I compiled the c++ code to wasm and embedded it in a quick site to make configuration of the solver simple. I should probably put both projects in here but its fine for now. 
+
+AI was used for the solver.html file to make it prettier, everything else was hand-written. 
+
+
