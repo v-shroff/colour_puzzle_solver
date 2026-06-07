@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Solver Loader</title>
+    <style>
+      :root {
+        --bg-color: #f4f7f6;
+        --panel-bg: #ffffff;
+        --text-main: #2d3748;
+        --text-muted: #718096;
+        --border-color: #e2e8f0;
+        --accent-color: #3182ce;
+        --accent-hover: #2b6cb0;
+        --tube-glass: rgba(226, 232, 240, 0.4);
+        --tube-border: #cbd5e0;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-main);
+        margin: 0;
+        padding: 40px 20px;
+        line-height: 1.5;
+      }
+
+      h1, h2 {
+        color: var(--text-main);
+        margin-top: 0;
+        font-weight: 600;
+      }
+
+      h2 {
+        font-size: 1.4rem;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--bg-color);
+        padding-bottom: 10px;
+      }
+
+      label {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .layout-container {
+        display: flex;
+        flex-direction: column; /* Stack vertically */
+        gap: 24px;
+        max-width: 1200px; /* Wide enough for 16 tubes */
+        margin: 0 auto;
+      }
+
+      .panel {
+        width: 100%;
+        box-sizing: border-box;
+        background: var(--panel-bg);
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(0,0,0,0.02);
+      }
+
+      .config-group {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .config-item {
+        flex: 1;
+      }
+
+      .config-item input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.2s;
+        background-color: #fafafa;
+      }
+
+      .config-item input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        background-color: #fff;
+      }
+
+      .palette-dropdown {
+        margin-bottom: 24px;
+        background: var(--bg-color);
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+      }
+
+      .palette-dropdown summary {
+        padding: 14px 16px;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        color: var(--text-main);
+        background: var(--panel-bg);
+      }
+
+      .palette-dropdown summary:hover {
+        background: #fdfdfd;
+      }
+
+      .palette-content {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .palette-controls {
+        display: flex;
+        gap: 10px;
+      }
+
+      .palette-controls button {
+        padding: 8px 16px;
+        border: 1px solid var(--border-color);
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        color: var(--text-main);
+      }
+      .palette-controls button:hover { background: #f0f0f0; }
+
+      .palette-colors-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .palette-color-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+      
+      .palette-color-item input[type="color"] {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .palette-color-item span {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        font-family: monospace;
+      }
+
+      .visual-editor, .visual-state-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px; /* Reduced slightly to ensure 16 fit nicely */
+        background: var(--bg-color);
+        padding: 16px;
+        border-radius: 12px;
+        min-height: 100px;
+        margin-bottom: 24px;
+        justify-content: flex-start; /* Align left to prevent center-bouncing */
+      }
+
+      .tube-edit-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: var(--panel-bg);
+        padding: 8px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      }
+
+      .tube-edit-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .ball-cell {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        margin-bottom: 4px;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: transform 0.1s, border-color 0.1s;
+        box-shadow: inset -3px -3px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.05);
+      }
+
+      .ball-cell:hover {
+        transform: scale(1.1);
+        border-color: var(--text-muted);
+      }
+
+      /* Tubes & Balls */
+      .tube {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 44px;
+        border: 3px solid var(--tube-border);
+        border-top: none;
+        border-radius: 0 0 22px 22px;
+        padding: 4px;
+        background: var(--tube-glass);
+        box-shadow: inset 0 -4px 8px rgba(0,0,0,0.05);
+        justify-content: flex-end;
+      }
+
+      .ball, .ball-cell {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        margin: 2px 0;
+        box-shadow: inset -4px -4px 8px rgba(0,0,0,0.15), inset 4px 4px 8px rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.1);
+      }
+
+      .empty {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: 2px dashed rgba(0,0,0,0.1);
+      }
+
+      .unsolved-state-title {
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 10px;
+        font-size: 1.1rem;
+      }
+
+      /* Dropdown / Popover Color Picker */
+      .color-popover {
+        position: absolute;
+        display: none;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        background: white;
+        padding: 12px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        border: 1px solid var(--border-color);
+        z-index: 1000;
+      }
+
+      .popover-color {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: transform 0.1s;
+        box-shadow: inset -3px -3px 6px rgba(0,0,0,0.1);
+      }
+      .popover-color:hover {
+        transform: scale(1.15);
+      }
+
+      /* Buttons */
+      button#solveButton {
+        width: 100%;
+        padding: 16px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        background-color: var(--accent-color);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(49, 130, 206, 0.2);
+      }
+
+      button#solveButton:hover:not(:disabled) {
+        background-color: var(--accent-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(49, 130, 206, 0.3);
+      }
+
+      button#solveButton:disabled {
+        background-color: var(--border-color);
+        color: var(--text-muted);
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+      }
+
+      /* Results */
+      .results-title-bar {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: var(--accent-hover);
+        margin-bottom: 20px;
+        padding: 14px;
+        background-color: #ebf8ff;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid #bee3f8;
+      }
+
+      .results-visual {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-height: 800px;
+        overflow-y: auto;
+        padding-right: 8px;
+      }
+
+      .results-visual::-webkit-scrollbar { width: 8px; }
+      .results-visual::-webkit-scrollbar-track { background: var(--bg-color); border-radius: 4px; }
+      .results-visual::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+      .step-visual-panel {
+        background: var(--bg-color);
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+      }
+
+      .step-header {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 16px;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 8px;
+      }
+
+      .step-state-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px; /* Reduced slightly to ensure 16 fit nicely */
+        justify-content: flex-start;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="colorPopover" class="color-popover"></div>
+
+    <div class="layout-container">
+      
+      <div class="panel">
+        <h2>Puzzle Configuration</h2>
+        
+        <div class="config-group">
+          <div class="config-item">
+            <label for="numTubesInput">Number of Tubes:</label>
+            <input type="number" id="numTubesInput" value="16" min="1">
+          </div>
+          <div class="config-item">
+            <label for="tubeDepthInput">Tube Depth:</label>
+            <input type="number" id="tubeDepthInput" value="5" min="1">
+          </div>
+        </div>
+
+        <details class="palette-dropdown">
+          <summary>Add/Remove Colors</summary>
+          <div class="palette-content">
+            <div class="palette-controls">
+              <button id="addColorBtn">+ Add Color</button>
+              <button id="removeColorBtn">- Remove Last Color</button>
+            </div>
+            <div id="paletteGrid" class="palette-colors-grid"></div>
+          </div>
+        </details>
+
+        <label>Visual Editor (Click a slot to set its color)</label>
+        <div id="visualEditor" class="visual-editor"></div>
+
+        <div class="unsolved-state-title">Unsolved State Preview</div>
+        <div id="visualPreview" class="visual-state-preview"></div>
+
+        <button id="solveButton" disabled>Solve Puzzle</button>
+      </div>
+
+      <div class="panel">
+        <div id="resultsTitle" class="results-title-bar">Waiting for WebAssembly module...</div>
+        <div id="visualSteps" class="results-visual"></div>
+      </div>
+    </div>
+
+    <script type="module">
+      import createModule from "./web.js";
+
+      const solveBtn = document.getElementById("solveButton");
+      const resultsTitle = document.getElementById("resultsTitle");
+      const visualSteps = document.getElementById("visualSteps");
+      const visualPreview = document.getElementById("visualPreview");
+      const visualEditor = document.getElementById("visualEditor");
+      const numTubesInput = document.getElementById("numTubesInput");
+      const tubeDepthInput = document.getElementById("tubeDepthInput");
+      const colorPopover = document.getElementById("colorPopover");
+      
+      const paletteGrid = document.getElementById("paletteGrid");
+      const addColorBtn = document.getElementById("addColorBtn");
+      const removeColorBtn = document.getElementById("removeColorBtn");
+
+      // Dynamic color map. 0 is always transparent (empty).
+      let COLOR_MAP = [
+        "transparent", 
+        "#ef5350", "#42a5f5", "#66bb6a", "#ffa726", "#ab47bc", 
+        "#ec407a", "#26c6da", "#fbc02d", "#8d6e63", "#78909c", 
+        "#cddc39", "#ffca28", "#8c9eff", "#4db6ac"
+      ];
+
+      let currentMatrix = [];
+      let activeTubeIdx = null;
+      let activeBallIdx = null;
+
+      // --- Palette Management ---
+
+      function renderPaletteManager() {
+        paletteGrid.innerHTML = "";
+        // Skip index 0 (transparent)
+        for (let i = 1; i < COLOR_MAP.length; i++) {
+          const item = document.createElement("div");
+          item.className = "palette-color-item";
+          
+          const input = document.createElement("input");
+          input.type = "color";
+          input.value = COLOR_MAP[i];
+          input.title = `Color ID: ${i}`;
+          
+          input.addEventListener("input", (e) => {
+            COLOR_MAP[i] = e.target.value;
+            buildColorPopover(); // Update popover colors
+            updateVisualEditor(); // Re-render balls
+            updateVisualPreview();
+          });
+
+          const label = document.createElement("span");
+          label.textContent = `ID ${i}`;
+
+          item.appendChild(input);
+          item.appendChild(label);
+          paletteGrid.appendChild(item);
+        }
+      }
+
+      addColorBtn.addEventListener("click", () => {
+        // Generate a random pleasant color or use a default
+        COLOR_MAP.push("#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'));
+        renderPaletteManager();
+        buildColorPopover();
+      });
+
+      removeColorBtn.addEventListener("click", () => {
+        if (COLOR_MAP.length > 2) { // Keep at least 1 color + transparent
+          COLOR_MAP.pop();
+          renderPaletteManager();
+          buildColorPopover();
+          updateVisualEditor();
+          updateVisualPreview();
+        }
+      });
+
+      // --- Popover Initialization ---
+      
+      function buildColorPopover() {
+        colorPopover.innerHTML = "";
+        COLOR_MAP.forEach((color, id) => {
+          const colorBtn = document.createElement("div");
+          colorBtn.className = id === 0 ? "popover-color empty" : "popover-color";
+          if (id !== 0) colorBtn.style.backgroundColor = color;
+          colorBtn.title = `ID: ${id}`;
+          
+          colorBtn.addEventListener("click", () => {
+            if (activeTubeIdx !== null && activeBallIdx !== null) {
+              currentMatrix[activeTubeIdx][activeBallIdx] = id;
+              updateVisualEditor();
+              updateVisualPreview();
+            }
+            colorPopover.style.display = 'none'; // Hide after picking
+          });
+          colorPopover.appendChild(colorBtn);
+        });
+      }
+
+      // Hide popover if clicking anywhere else
+      document.addEventListener("click", (e) => {
+        if (!colorPopover.contains(e.target)) {
+          colorPopover.style.display = 'none';
+        }
+      });
+
+      // --- Rendering Logic ---
+
+      function drawVisualState(container, matrix, tubeDepth) {
+        container.innerHTML = "";
+        matrix.forEach((tubeArray, index) => {
+          const tubeDiv = document.createElement("div");
+          tubeDiv.className = "tube";
+          tubeDiv.style.height = `${tubeDepth * 38 + 12}px`; 
+
+          tubeArray.forEach(ballVal => {
+            const ballDiv = document.createElement("div");
+            ballDiv.className = ballVal === 0 ? "ball empty" : "ball";
+            // Check if ballVal exists in our current COLOR_MAP, else fallback to gray
+            if (ballVal !== 0) {
+              ballDiv.style.backgroundColor = COLOR_MAP[ballVal] || "#ccc";
+            }
+            tubeDiv.appendChild(ballDiv);
+          });
+          container.appendChild(tubeDiv);
+        });
+      }
+
+      function updateVisualPreview() {
+        const tubeDepth = parseInt(tubeDepthInput.value, 10);
+        drawVisualState(visualPreview, currentMatrix, tubeDepth);
+      }
+
+      function updateVisualEditor() {
+        const tubeDepth = parseInt(tubeDepthInput.value, 10);
+        visualEditor.innerHTML = "";
+        
+        currentMatrix.forEach((tubeArray, tubeIdx) => {
+          const editBlock = document.createElement("div");
+          editBlock.className = "tube-edit-block";
+          
+          const title = document.createElement("div");
+          title.className = "tube-edit-title";
+          title.textContent = `T ${tubeIdx+1}`;
+          editBlock.appendChild(title);
+
+          tubeArray.forEach((ballVal, ballIdx) => {
+            const cell = document.createElement("div");
+            cell.className = ballVal === 0 ? "ball-cell empty" : "ball-cell";
+            if (ballVal !== 0) {
+              cell.style.backgroundColor = COLOR_MAP[ballVal] || "#ccc";
+            }
+            cell.title = `Tube ${tubeIdx+1}, Slot ${ballIdx+1}`;
+            
+            cell.addEventListener("click", (e) => {
+              e.stopPropagation(); 
+              activeTubeIdx = tubeIdx;
+              activeBallIdx = ballIdx;
+              
+              const rect = cell.getBoundingClientRect();
+              colorPopover.style.left = `${rect.left + window.scrollX - 50}px`; 
+              colorPopover.style.top = `${rect.bottom + window.scrollY + 10}px`;
+              colorPopover.style.display = 'grid'; 
+            });
+            
+            editBlock.appendChild(cell);
+          });
+          visualEditor.appendChild(editBlock);
+        });
+      }
+
+      function synchronizeState() {
+        let numTubes = parseInt(numTubesInput.value, 10);
+        let tubeDepth = parseInt(tubeDepthInput.value, 10);
+        
+        if (numTubes < 1) numTubes = 1;
+        if (tubeDepth < 1) tubeDepth = 1;
+        numTubesInput.value = numTubes;
+        tubeDepthInput.value = tubeDepth;
+
+        const newMatrix = Array.from({ length: numTubes }, () => 
+          Array.from({ length: tubeDepth }, () => 0)
+        );
+
+        for (let i = 0; i < Math.min(numTubes, currentMatrix.length); i++) {
+          for (let j = 0; j < Math.min(tubeDepth, currentMatrix[i].length); j++) {
+            newMatrix[i][j] = currentMatrix[i][j];
+          }
+        }
+        currentMatrix = newMatrix;
+        updateVisualEditor();
+        updateVisualPreview();
+      }
+
+      numTubesInput.addEventListener("change", synchronizeState);
+      tubeDepthInput.addEventListener("change", synchronizeState);
+
+      function initializeDefaultMatrix() {
+        currentMatrix = [
+          [1, 2, 3, 4, 5], [6, 7, 8, 9, 10], [11, 12, 13, 14, 1], [2, 3, 4, 5, 6],
+          [7, 8, 9, 10, 11], [12, 13, 14, 1, 2], [3, 4, 5, 6, 7], [8, 9, 10, 11, 12],
+          [13, 14, 1, 2, 3], [4, 5, 6, 7, 8], [9, 10, 11, 12, 13], [14, 1, 2, 3, 4],
+          [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0],
+        ];
+        synchronizeState();
+      }
+
+      // Initialize UI elements
+      renderPaletteManager();
+      buildColorPopover();
+
+      let wasmModule = null;
+
+      // --- CRITICAL: Original Emscripten logic, UNTOUCHED ---
+      createModule({
+        locateFile: (path) => new URL(path, import.meta.url).href,
+      })
+        .then((Module) => {
+          wasmModule = Module;
+          initializeDefaultMatrix();
+          resultsTitle.textContent = "Module loaded! Press 'Solve Puzzle' to begin.";
+          solveBtn.disabled = false;
+        })
+        .catch((error) => {
+          resultsTitle.textContent = "Failed to load WebAssembly module.";
+          console.error("Failed to load WebAssembly module:\n", error);
+        });
+
+      // --- CRITICAL: Original solve logic, UNTOUCHED ---
+      solveBtn.addEventListener("click", () => {
+        resultsTitle.textContent = "Parsing configuration...";
+        visualSteps.innerHTML = ""; // Clear old results
+
+        const numTubes = parseInt(numTubesInput.value, 10);
+        const tubeDepth = parseInt(tubeDepthInput.value, 10);
+
+        try {
+          const boardVector = new wasmModule.vectorUI32();
+          for (const row of currentMatrix) {
+            for (const value of row) {
+              boardVector.push_back(value);
+            }
+          }
+
+          resultsTitle.textContent = "Running solvePuzzle...";
+          const rawResultMatrix = wasmModule.solvePuzzle(
+            tubeDepth,
+            numTubes,
+            boardVector,
+          );
+
+          const jsResultMatrix = [];
+          const rowCount = rawResultMatrix.size();
+          for (let i = 0; i < rowCount; i++) {
+            const innerVector = rawResultMatrix.get(i);
+            const colCount = innerVector.size();
+            const jsRow = [];
+            for (let j = 0; j < colCount; j++) {
+              jsRow.push(innerVector.get(j));
+            }
+            jsResultMatrix.push(jsRow);
+            innerVector.delete();
+          }
+
+          rawResultMatrix.delete();
+          boardVector.delete();
+
+          resultsTitle.textContent = `Solution found in ${rowCount} steps`;
+          console.log("Solved puzzle steps data:", jsResultMatrix);
+
+          if (rowCount === 0) {
+            visualSteps.innerHTML = "<div class='step-header'>No steps returned - the puzzle might already be solved or impossible.</div>";
+            return;
+          }
+
+          jsResultMatrix.forEach((stepVector, index) => {
+            const stepPanel = document.createElement("div");
+            stepPanel.className = "step-visual-panel";
+            
+            const header = document.createElement("div");
+            header.className = "step-header";
+            header.textContent = `Step ${index + 1}`;
+            stepPanel.appendChild(header);
+
+            const stateContainer = document.createElement("div");
+            stateContainer.className = "step-state-container";
+            stepPanel.appendChild(stateContainer);
+
+            const stepMatrix = [];
+            for (let i = 0; i < numTubes; i++) {
+              stepMatrix.push(stepVector.slice(i * tubeDepth, (i + 1) * tubeDepth));
+            }
+            
+            drawVisualState(stateContainer, stepMatrix, tubeDepth);
+            visualSteps.appendChild(stepPanel);
+          });
+
+        } catch (error) {
+          resultsTitle.textContent = "Error running solvePuzzle its likley that the solver explored 100k states and gave up, please reload the page";
+          alert("The solver explored 100k states and quit, the page will reload now");
+          window.location.reload();
+          console.error("Error running solvePuzzle:\n", error);
+        }
+      });
+    </script>
+  </body>
+</html>

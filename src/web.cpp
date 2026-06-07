@@ -1,16 +1,15 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <emscripten/bind.h>
 #include <functional>
 #include <iostream>
 #include <iterator>
-#include <ostream>
 #include <queue>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
 struct state {
   state(std::vector<uint32_t> board) : board(board) {}
   std::vector<uint32_t> board; // this is the board state
@@ -29,7 +28,7 @@ template <> struct hash<state> {
     return std::hash<std::string_view>{}(bytes);
   }
 };
-} // namespace std
+} // namespace    std
 
 struct boardState {
   size_t g; // this is the current move count (depth)
@@ -70,6 +69,8 @@ int getH(const state &board, size_t numTubes, size_t tubeDepth) {
     }
   }
   return hScore;
+  //
+  //
 }
 // int getH(const state &board, size_t numTubes, size_t tubeDepth) { // this is
 // basically just dikstras or bfs - leads to a total of like 3million explored
@@ -164,7 +165,9 @@ bool generateValidMoves(
   return false;
 }
 
-int main(int argc, char *argv[]) {
+std::vector<std::vector<uint32_t>>
+solvePuzzle(size_t tubeDepth, size_t numTubes,
+            std::vector<uint32_t> startingBoard) {
   std::vector<state> stateSpace;
   std::vector<boardState> metadata;
   std::unordered_map<state, int> closedSet; // state array, key
@@ -174,51 +177,7 @@ int main(int argc, char *argv[]) {
   stateSpace.reserve(20000);
   metadata.reserve(20000);
   closedSet.reserve(20000);
-
-  size_t tubeDepth = 5;
-  size_t numTubes = 16;
-
-  stateSpace.emplace_back(std::vector<uint32_t>{
-      1,  2,  3,  4,  5,  // tube 0
-      6,  7,  8,  9,  10, // tube 1
-      11, 12, 13, 14, 1,  // tube 2
-      2,  3,  4,  5,  6,  // tube 3
-      7,  8,  9,  10, 11, // tube 4
-      12, 13, 14, 1,  2,  // tube 5
-      3,  4,  5,  6,  7,  // tube 6
-      8,  9,  10, 11, 12, // tube 7
-      13, 14, 1,  2,  3,  // tube 8
-      4,  5,  6,  7,  8,  // tube 9
-      9,  10, 11, 12, 13, // tube 10
-      14, 1,  2,  3,  4,  // tube 11
-      5,  6,  7,  8,  9,  // tube 12
-      10, 11, 12, 13, 14, // tube 13
-      0,  0,  0,  0,  0,  // tube 14 (empty)
-      0,  0,  0,  0,  0   // tube 15 (empty)
-  });
-  // stateSpace.emplace_back(std::vector<int>{
-  //     1, 2, 2,   // tube 1
-  //     0, 0, 1, // tube 2
-  //     0, 2, 1   // tube 3
-  // });
-  //
-  // stateSpace.emplace_back(std::vector<uint32_t>{
-  //     1,  2, 3,  4,  // tube 0
-  //     5,  6, 7,  8,  // tube 1
-  //     4,  9, 7,  7,  // tube 2
-  //     10, 1, 11, 9,  // tube 3
-  //     1,  5, 8,  3,  // tube 4
-  //     2,  6, 12, 8,  // tube 5
-  //     5,  6, 5,  2,  // tube 6
-  //     12, 2, 12, 11, // tube 7
-  //     10, 6, 4,  4,  // tube 8
-  //     3,  9, 9,  1,  // tube 9
-  //     3,  7, 10, 11, // tube 10
-  //     11, 8, 12, 10, // tube 11
-  //     0,  0, 0,  0,  // tube 12 (empty)
-  //     0,  0, 0,  0   // tube 13 (empty)
-  //
-  // });
+  stateSpace.push_back(startingBoard);
 
   metadata.emplace_back(0, 0);
   closedSet[stateSpace[0]] = 0;
@@ -235,23 +194,33 @@ int main(int argc, char *argv[]) {
       solved = true;
       solvedKey = stateSpace.size() - 1;
     }
-  }
-
-  int numMoves = 0;
-  while (solvedKey != 0) {
-    for (size_t tube = 0; tube < numTubes; ++tube) {
-      for (size_t depth = 0; depth < tubeDepth; ++depth) {
-        std::cout << stateSpace[solvedKey].board[tube * tubeDepth + depth]
-                  << " ,";
-      }
-      std::cout << "Tube " << tube << std::endl;
+    if (closedSet.size() >= 100000) {
+      return std::vector<std::vector<uint32_t>>{};
+      std::cout
+          << "Puzzle reached 100k explored states, likley unsolvable";
     }
-    ++numMoves;
-    std::cout << std::endl;
-    solvedKey = metadata[solvedKey].parentIdx;
   }
-  std::cout << "Explored " << closedSet.size() << " states" << std::endl
-            << std::endl;
-  std::cout << "Solved in " << numMoves << " moves" << std::endl;
+  std::vector<std::vector<uint32_t>> output;
+  while (solvedKey != 0) {
+    output.push_back(stateSpace[solvedKey].board);
+    solvedKey = metadata[solvedKey].parentIdx;
+    //
+    ////
+  }
+  output.push_back(startingBoard);
+  std::reverse(output.begin(), output.end());
+  std::cout << "Puzzle solved!";
+  return output;
+}
+
+int main(int argc, char *argv[]) {
+  std::cout << "initalized";
   return 0;
+  //
+}
+
+EMSCRIPTEN_BINDINGS(solver_module) {
+  emscripten::function("solvePuzzle", &solvePuzzle);
+  emscripten::register_vector<uint32_t>("vectorUI32");
+  emscripten::register_vector<std::vector<uint32_t>>("vector2dUI32");
 }
